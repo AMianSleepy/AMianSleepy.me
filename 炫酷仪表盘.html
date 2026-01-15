@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <title>炫酷仪表盘 · Front-end Practice</title>
+  <style>
+    :root{
+      --bg0:#070a12;
+      --bg1:#0b1020;
+      --card:rgba(255,255,255,.06);
+      --card2:rgba(255,255,255,.08);
+      --stroke:rgba(255,255,255,.12);
+      --text:rgba(255,255,255,.92);
+      --muted:rgba(255,255,255,.62);
+      --muted2:rgba(255,255,255,.45);
+      --accent:#7c5cff;
+      --accent2:#22d3ee;
+      --good:#22c55e;
+      --warn:#f59e0b;
+      --bad:#fb7185;
+      --shadow: 0 22px 70px rgba(0,0,0,.55);
+      --radius: 18px;
+      --radius2: 26px;
+      --ring: 0 0 0 1px var(--stroke) inset;
+      --blur: blur(14px);
+      --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif;
+    }
+
+    /* Light theme (kept tasteful, not blinding) */
+    [data-theme="light"]{
+      --bg0:#f7f8ff;
+      --bg1:#eef1ff;
+      --card:rgba(255,255,255,.78);
+      --card2:rgba(255,255,255,.9);
+      --stroke:rgba(20,20,40,.14);
+      --text:rgba(12,14,22,.92);
+      --muted:rgba(12,14,22,.62);
+      --muted2:rgba(12,14,22,.45);
+      --shadow: 0 24px 70px rgba(18, 25, 56, .18);
+      --ring: 0 0 0 1px var(--stroke) inset;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(124,92,255,.28), transparent 60%),
+        radial-gradient(900px 700px at 90% 20%, rgba(34,211,238,.22), transparent 55%),
+        radial-gradient(900px 700px at 60% 110%, rgba(251,113,133,.14), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow-x:hidden;
+    }
+
+    a{color:inherit;text-decoration:none}
+    button,input{font:inherit}
+
+    /* Subtle grain */
+    body:before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.09;
+      mix-blend-mode:overlay;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+    }
+
+    .app{
+      max-width:1200px;
+      margin:0 auto;
+      padding:28px 18px 40px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      position:sticky;
+      top:0;
+      padding:14px 0 16px;
+      z-index:50;
+      backdrop-filter: blur(10px);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width: 220px;
+    }
+
+    .logo{
+      width:42px;height:42px;border-radius:14px;
+      background:
+        radial-gradient(14px 14px at 30% 30%, rgba(255,255,255,.85), rgba(255,255,255,0) 60%),
+        conic-gradient(from 190deg, var(--accent), var(--accent2), var(--bad), var(--accent));
+      box-shadow: var(--shadow);
+      position:relative;
+      overflow:hidden;
+    }
+    .logo:after{
+      content:"";
+      position:absolute;
+      inset:-60% -60%;
+      background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.55) 42%, transparent 55%);
+      transform: translateX(-30%);
+      animation: shine 5.8s ease-in-out infinite;
+      opacity:.6;
+    }
+
+    @keyframes shine{
+      0%{transform:translateX(-40%) rotate(8deg)}
+      50%{transform:translateX(40%) rotate(8deg)}
+      100%{transform:translateX(-40%) rotate(8deg)}
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.24em;
+      text-transform:uppercase;
+      color:var(--muted);
+      font-weight:700;
+    }
+    .brand .sub{
+      margin:0;
+      font-size:16px;
+      font-weight:800;
+      letter-spacing:.02em;
+      line-height:1.1;
+    }
+
+    .search{
+      flex:1;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius: 999px;
+      background: var(--card);
+      box-shadow: var(--ring);
+      backdrop-filter: var(--blur);
+      min-width: 240px;
+    }
+    .search svg{opacity:.7}
+    .search input{
+      width:100%;
+      border:none;
+      background:transparent;
+      color:var(--text);
+      outline:none;
+    }
+    .search input::placeholder{color:var(--muted2)}
+
+    .actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius: 999px;
+      background: var(--card);
+      box-shadow: var(--ring);
+      backdrop-filter: var(--blur);
+      user-select:none;
+    }
+
+    .btn{
+      border:none;
+      cursor:pointer;
+      color:var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
+      box-shadow: var(--ring);
+      padding:10px 12px;
+      border-radius: 999px;
+      transition: transform .18s ease, background .18s ease;
+    }
+    .btn:hover{transform: translateY(-1px)}
+    .btn:active{transform: translateY(0px)}
+
+    .layout{
+      display:grid;
+      grid-template-columns: 260px 1fr;
+      gap:16px;
+      margin-top: 6px;
+    }
+
+    .sidebar{
+      position:sticky;
+      top:84px;
+      height: calc(100dvh - 110px);
+      padding:14px;
+      border-radius: var(--radius2);
+      background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.05));
+      box-shadow: var(--ring);
+      backdrop-filter: var(--blur);
+      overflow:hidden;
+    }
+
+    .sidebar:before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      border-radius: var(--radius2);
+      background:
+        radial-gradient(360px 220px at 20% 0%, rgba(124,92,255,.22), transparent 55%),
+        radial-gradient(360px 260px at 80% 30%, rgba(34,211,238,.18), transparent 55%),
+        radial-gradient(520px 360px at 40% 110%, rgba(251,113,133,.12), transparent 60%);
+      pointer-events:none;
+      filter: blur(0.2px);
+      opacity:.85;
+    }
+
+    .nav{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-bottom: 14px;
+    }
+
+    .nav a{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius: 14px;
+      color:var(--muted);
+      transition: background .2s ease, color .2s ease;
+    }
+    .nav a:hover{
+      background: rgba(255,255,255,.07);
+      color: var(--text);
+    }
+    .nav a.active{
+      background: linear-gradient(90deg, rgba(124,92,255,.28), rgba(34,211,238,.16));
+      color: var(--text);
+      box-shadow: 0 0 0 1px rgba(124,92,255,.22) inset;
+    }
+
+    .sidebarCard{
+      position:relative;
+      margin-top: 12px;
+      padding:14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.07);
+      box-shadow: var(--ring);
+      backdrop-filter: var(--blur);
+    }
+
+    .chipRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .chip{
+      font-size:12px;
+      padding:8px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.06);
+      box-shadow: var(--ring);
+      color: var(--muted);
+    }
+
+    .main{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+
+    .hero{
+      border-radius: var(--radius2);
+      padding: 18px;
+      background: linear-gradient(120deg, rgba(124,92,255,.18), rgba(34,211,238,.10));
+      box-shadow: var(--ring);
+      backdrop-filter: var(--blur);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero:after{
+      content:"";
+      position:absolute;
+      inset:-60px;
+      background:
+        radial-gradient(260px 200px at 20% 30%, rgba(255,255,255,.16), transparent 60%),
+        radial-gradient(360px 260px at 70% 40%, rgba(34,211,238,.16), transparent 60%),
+        radial-gradient(420px 260px at 50% 110%, rgba(124,92,255,.12), transparent 60%);
+      pointer-events:none;
+      transform: rotate(-8deg);
+      opacity:.75;
+    }
+
+    .heroTop{
+      position:relative;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+    }
+
+    .heroTitle{
+      margin:0;
+      font-size: clamp(20px, 2.4vw, 30px);
+      letter-spacing: .02em;
+      font-weight: 900;
+    }
+
+    .heroMeta{
+      margin-top: 8px;
+      color: var(--muted);
+      max-width: 62ch;
+      line-height: 1.65;
+    }
+
+    .heroBadges{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border-radius: 999px;
+      padding:10px 12px;
+      background: rgba(255,255,255,.08);
+      box-shadow: var(--ring);
+      color: var(--muted);
+      position:relative;
+    }
+    .dot{width:8px;height:8px;border-radius:999px;background: var(--accent2); box-shadow: 0 0 0 4px rgba(34,211,238,.15)}
+    .dot.warn{background: var(--warn); box-shadow: 0 0 0 4px rgba(245,158,11,.18)}
+    .dot.good{background: var(--good); box-shadow: 0 0 0 4px rgba(34,197,94,.18)}
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .card{
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: var(--ring);
+      backdrop-filter: var(--blur);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .cardHeader{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      padding: 14px 14px 10px;
+    }
+
+    .cardTitle{margin:0;font-size:14px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-weight:800}
+    .cardValue{margin:6px 0 0;font-size:26px;font-weight:900;letter-spacing:.01em}
+
+    .cardBody{padding: 0 14px 14px}
+
+    .kpi{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.06);
+      box-shadow: var(--ring);
+    }
+
+    .kpi small{color:var(--muted2)}
+    .trend{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-weight:800;
+      color: var(--good);
+    }
+    .trend.down{color: var(--bad)}
+
+    .spark{
+      height:54px;
+      border-radius: 14px;
+      margin-top: 12px;
+      background:
+        linear-gradient(180deg, rgba(124,92,255,.18), transparent 70%),
+        radial-gradient(200px 80px at 15% 50%, rgba(34,211,238,.16), transparent 60%),
+        radial-gradient(220px 90px at 75% 40%, rgba(251,113,133,.14), transparent 60%),
+        rgba(255,255,255,.06);
+      box-shadow: var(--ring);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .spark svg{position:absolute;inset:0}
+
+    .progress{
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.06);
+      box-shadow: var(--ring);
+    }
+
+    .bar{
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      overflow:hidden;
+    }
+
+    .bar > i{
+      display:block;
+      height:100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      box-shadow: 0 10px 30px rgba(124,92,255,.25);
+      transition: width 900ms cubic-bezier(.2,.9,.2,1);
+    }
+
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin: 8px 0 10px;
+    }
+
+    .row strong{font-weight:900}
+    .row span{color:var(--muted)}
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top: 10px;
+    }
+
+    .item{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.06);
+      box-shadow: var(--ring);
+    }
+
+    .itemLeft{display:flex;align-items:center;gap:12px;min-width:0}
+    .avatar{
+      width:36px;height:36px;border-radius: 14px;
+      background: linear-gradient(135deg, rgba(124,92,255,.9), rgba(34,211,238,.75));
+      box-shadow: 0 12px 30px rgba(124,92,255,.25);
+      flex:0 0 auto;
+    }
+    .itemLeft div{min-width:0}
+    .itemLeft b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .itemLeft small{color:var(--muted2)}
+
+    .tag{
+      font-size:12px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(34,197,94,.12);
+      color: rgba(34,197,94,.95);
+      box-shadow: 0 0 0 1px rgba(34,197,94,.22) inset;
+      white-space:nowrap;
+    }
+    .tag.warn{background: rgba(245,158,11,.14); color: rgba(245,158,11,.95); box-shadow: 0 0 0 1px rgba(245,158,11,.22) inset;}
+    .tag.bad{background: rgba(251,113,133,.14); color: rgba(251,113,133,.95); box-shadow: 0 0 0 1px rgba(251,113,133,.22) inset;}
+
+    .span-4{grid-column: span 4}
+    .span-5{grid-column: span 5}
+    .span-7{grid-column: span 7}
+    .span-12{grid-column: span 12}
+
+    .footer{
+      margin-top: 16px;
+      color: var(--muted2);
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      font-size: 12px;
+    }
+
+    /* Responsiveness */
+    @media (max-width: 980px){
+      .layout{grid-template-columns: 1fr}
+      .sidebar{position:relative; top:0; height:auto}
+      .brand{min-width: unset}
+    }
+
+    @media (max-width: 520px){
+      .topbar{flex-wrap:wrap}
+      .search{order: 3; flex-basis: 100%}
+      .grid{gap:12px}
+      .span-4,.span-5,.span-7{grid-column: span 12}
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .logo:after{animation:none}
+      .btn{transition:none}
+      .bar > i{transition:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app" data-theme="dark">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>FRONT-END PRACTICE</h1>
+          <p class="sub">炫酷仪表盘</p>
+        </div>
+      </div>
+
+      <label class="search" aria-label="搜索">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="2" opacity=".8"/>
+          <path d="M16.8 16.8 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".8"/>
+        </svg>
+        <input placeholder="搜索：卡片 / 进度 / 项目 / 目标…（只是 UI 演示）" />
+      </label>
+
+      <div class="actions">
+        <div class="pill" title="当前时间">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 22a10 10 0 1 0-10-10 10 10 0 0 0 10 10Z" stroke="currentColor" stroke-width="2" opacity=".8"/>
+            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+          </svg>
+          <span id="clock" style="font-weight:900; letter-spacing:.02em">--:--:--</span>
+        </div>
+        <button class="btn" id="themeBtn" type="button" aria-label="切换主题">
+          <span id="themeText" style="font-weight:900">暗色</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <nav class="nav" aria-label="导航">
+          <a class="active" href="#" onclick="return false;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5Z" stroke="currentColor" stroke-width="2" opacity=".9"/></svg>
+            概览
+          </a>
+          <a href="#" onclick="return false;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".9"/></svg>
+            任务流
+          </a>
+          <a href="#" onclick="return false;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".9"/></svg>
+            组件库
+          </a>
+          <a href="#" onclick="return false;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s-7-4.35-7-11a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 6.65-7 11-7 11Z" stroke="currentColor" stroke-width="2" opacity=".9"/></svg>
+            收藏
+          </a>
+          <a href="#" onclick="return false;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0-3.5-3.5 3.5 3.5 0 0 0 3.5 3.5Z" stroke="currentColor" stroke-width="2" opacity=".9"/><path d="M19.4 15a7.97 7.97 0 0 0 0-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".9"/><path d="M4.6 9a7.97 7.97 0 0 0 0 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".9"/></svg>
+            设置
+          </a>
+        </nav>
+
+        <div class="sidebarCard" style="position:relative">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div>
+              <div style="font-size:12px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; font-weight:900;">今日目标</div>
+              <div style="margin-top:6px; font-weight:900; font-size:20px;">把页面做得很牛</div>
+              <div style="margin-top:6px; color:var(--muted); line-height:1.6">用纯 HTML + CSS 做出“像产品”的质感：层次、节奏、细节。</div>
+            </div>
+          </div>
+          <div class="chipRow" aria-label="关键词">
+            <span class="chip">Glass</span>
+            <span class="chip">Grid</span>
+            <span class="chip">Motion</span>
+            <span class="chip">A11y</span>
+            <span class="chip">Responsive</span>
+          </div>
+        </div>
+
+        <div class="sidebarCard">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div style="font-size:12px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; font-weight:900;">状态</div>
+            <span class="tag" id="statusTag">ONLINE</span>
+          </div>
+          <div style="margin-top:10px; display:flex; gap:10px;">
+            <button class="btn" id="boostBtn" type="button" style="flex:1">一键变更牛</button>
+            <button class="btn" id="resetBtn" type="button" style="flex:1">重置</button>
+          </div>
+          <div style="margin-top:10px; color:var(--muted2); line-height:1.6; font-size:12px">
+            这两个按钮只做 UI 互动：加点“爽感”，不依赖任何库。
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <section class="hero" aria-label="主横幅">
+          <div class="heroTop">
+            <div style="position:relative">
+              <h2 class="heroTitle">把练习写成“作品”——细节拉满，质感拉满。</h2>
+              <div class="heroMeta">这页是一个纯前端静态界面示例：玻璃拟态层叠、栅格布局、响应式断点、动效尊重系统设置（prefers-reduced-motion）、主题切换，以及一点点“像真的”仪表盘节奏。</div>
+              <div class="heroBadges">
+                <span class="badge"><span class="dot good" aria-hidden="true"></span>可读性优先</span>
+                <span class="badge"><span class="dot" aria-hidden="true"></span>层次感爆炸</span>
+                <span class="badge"><span class="dot warn" aria-hidden="true"></span>仍然是练习</span>
+              </div>
+            </div>
+            <div style="position:relative; display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+              <div class="pill" style="gap:8px">
+                <span style="color:var(--muted)">日期</span>
+                <strong id="today" style="font-weight:900">----</strong>
+              </div>
+              <div class="pill" style="gap:8px">
+                <span style="color:var(--muted)">专注</span>
+                <strong id="focus" style="font-weight:900">78%</strong>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid" aria-label="仪表盘网格">
+          <article class="card span-4" aria-label="关键指标 1">
+            <div class="cardHeader">
+              <div>
+                <p class="cardTitle">BUILD QUALITY</p>
+                <p class="cardValue" id="kpi1">96</p>
+              </div>
+              <div class="pill" style="padding:8px 10px; gap:8px">
+                <span style="font-size:12px; color:var(--muted)">目标</span>
+                <strong style="font-size:12px">100</strong>
+              </div>
+            </div>
+            <div class="cardBody">
+              <div class="kpi">
+                <div>
+                  <div style="font-weight:900">UI 细节完成度</div>
+                  <small>间距 / 对齐 / 视觉层级</small>
+                </div>
+                <span class="trend" id="trend1">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 14l6-6 4 4 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  +12%
+                </span>
+              </div>
+              <div class="spark" aria-hidden="true">
+                <svg viewBox="0 0 240 54" preserveAspectRatio="none">
+                  <path d="M0 40 C 28 10, 55 46, 80 26 C 104 7, 136 44, 160 24 C 184 4, 208 32, 240 12" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2.2"/>
+                  <path d="M0 54 L0 40 C 28 10, 55 46, 80 26 C 104 7, 136 44, 160 24 C 184 4, 208 32, 240 12 L240 54 Z" fill="rgba(124,92,255,.12)"/>
+                </svg>
+              </div>
+              <div class="progress">
+                <div class="row"><strong>完成度</strong><span id="p1">0%</span></div>
+                <div class="bar" aria-label="完成度进度"><i id="bar1"></i></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card span-4" aria-label="关键指标 2">
+            <div class="cardHeader">
+              <div>
+                <p class="cardTitle">PERFORMANCE</p>
+                <p class="cardValue" id="kpi2">1.2s</p>
+              </div>
+              <div class="pill" style="padding:8px 10px; gap:8px">
+                <span style="font-size:12px; color:var(--muted)">建议</span>
+                <strong style="font-size:12px">≤1.5s</strong>
+              </div>
+            </div>
+            <div class="cardBody">
+              <div class="kpi">
+                <div>
+                  <div style="font-weight:900">首屏观感</div>
+                  <small>布局稳定 & 字体清晰</small>
+                </div>
+                <span class="trend" id="trend2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 14l6-6 4 4 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  +8%
+                </span>
+              </div>
+              <div class="spark" aria-hidden="true" style="background:
+                linear-gradient(180deg, rgba(34,211,238,.18), transparent 70%),
+                radial-gradient(200px 80px at 15% 50%, rgba(124,92,255,.14), transparent 60%),
+                radial-gradient(220px 90px at 75% 40%, rgba(251,113,133,.14), transparent 60%),
+                rgba(255,255,255,.06);
+              ">
+                <svg viewBox="0 0 240 54" preserveAspectRatio="none">
+                  <path d="M0 30 C 22 38, 52 8, 78 22 C 106 38, 140 12, 168 28 C 192 40, 214 18, 240 26" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2.2"/>
+                  <path d="M0 54 L0 30 C 22 38, 52 8, 78 22 C 106 38, 140 12, 168 28 C 192 40, 214 18, 240 26 L240 54 Z" fill="rgba(34,211,238,.12)"/>
+                </svg>
+              </div>
+              <div class="progress">
+                <div class="row"><strong>稳定性</strong><span id="p2">0%</span></div>
+                <div class="bar" aria-label="稳定性进度"><i id="bar2"></i></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card span-4" aria-label="关键指标 3">
+            <div class="cardHeader">
+              <div>
+                <p class="cardTitle">AESTHETIC</p>
+                <p class="cardValue" id="kpi3">A+</p>
+              </div>
+              <div class="pill" style="padding:8px 10px; gap:8px">
+                <span style="font-size:12px; color:var(--muted)">风格</span>
+                <strong style="font-size:12px">Glass</strong>
+              </div>
+            </div>
+            <div class="cardBody">
+              <div class="kpi">
+                <div>
+                  <div style="font-weight:900">视觉一致性</div>
+                  <small>按钮 / 卡片 / 徽章</small>
+                </div>
+                <span class="trend down" id="trend3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10l6 6 4-4 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  -1%
+                </span>
+              </div>
+              <div class="spark" aria-hidden="true" style="background:
+                linear-gradient(180deg, rgba(251,113,133,.18), transparent 70%),
+                radial-gradient(200px 80px at 15% 50%, rgba(124,92,255,.14), transparent 60%),
+                radial-gradient(220px 90px at 75% 40%, rgba(34,211,238,.14), transparent 60%),
+                rgba(255,255,255,.06);
+              ">
+                <svg viewBox="0 0 240 54" preserveAspectRatio="none">
+                  <path d="M0 18 C 26 16, 54 36, 82 30 C 108 24, 140 10, 168 22 C 196 34, 214 18, 240 28" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="2.2"/>
+                  <path d="M0 54 L0 18 C 26 16, 54 36, 82 30 C 108 24, 140 10, 168 22 C 196 34, 214 18, 240 28 L240 54 Z" fill="rgba(251,113,133,.12)"/>
+                </svg>
+              </div>
+              <div class="progress">
+                <div class="row"><strong>一致性</strong><span id="p3">0%</span></div>
+                <div class="bar" aria-label="一致性进度"><i id="bar3"></i></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card span-7" aria-label="最近活动">
+            <div class="cardHeader">
+              <div>
+                <p class="cardTitle">RECENT ACTIVITY</p>
+                <p class="cardValue" style="font-size:18px">像真的一样：活动流</p>
+              </div>
+              <div class="pill" style="padding:8px 10px; gap:8px">
+                <span style="font-size:12px; color:var(--muted)">刷新</span>
+                <strong id="pulse" style="font-size:12px">实时</strong>
+              </div>
+            </div>
+            <div class="cardBody">
+              <div class="list" id="activityList" aria-label="活动列表">
+                <div class="item">
+                  <div class="itemLeft">
+                    <div class="avatar" aria-hidden="true"></div>
+                    <div>
+                      <b>组件：玻璃卡片</b>
+                      <small>完成圆角、边框、背景叠层</small>
+                    </div>
+                  </div>
+                  <span class="tag">DONE</span>
+                </div>
+                <div class="item">
+                  <div class="itemLeft">
+                    <div class="avatar" style="background: linear-gradient(135deg, rgba(34,211,238,.9), rgba(124,92,255,.75))" aria-hidden="true"></div>
+                    <div>
+                      <b>布局：12 栅格</b>
+                      <small>Span 规则 + 断点适配</small>
+                    </div>
+                  </div>
+                  <span class="tag">DONE</span>
+                </div>
+                <div class="item">
+                  <div class="itemLeft">
+                    <div class="avatar" style="background: linear-gradient(135deg, rgba(251,113,133,.9), rgba(245,158,11,.8))" aria-hidden="true"></div>
+                    <div>
+                      <b>交互：主题切换</b>
+                      <small>暗色 / 亮色一键切换</small>
+                    </div>
+                  </div>
+                  <span class="tag warn">TODO</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card span-5" aria-label="下一步计划">
+            <div class="cardHeader">
+              <div>
+                <p class="cardTitle">NEXT</p>
+                <p class="cardValue" style="font-size:18px">下一步：把它变成你的</p>
+              </div>
+              <div class="pill" style="padding:8px 10px; gap:8px">
+                <span style="font-size:12px; color:var(--muted)">难度</span>
+                <strong style="font-size:12px">Medium</strong>
+              </div>
+            </div>
+            <div class="cardBody">
+              <div class="list">
+                <div class="item">
+                  <div class="itemLeft">
+                    <div class="avatar" style="background: linear-gradient(135deg, rgba(34,197,94,.9), rgba(34,211,238,.75))" aria-hidden="true"></div>
+                    <div>
+                      <b>把卡片数据改成你自己的</b>
+                      <small>比如：学习时长 / 练习次数 / 今日任务</small>
+                    </div>
+                  </div>
+                  <span class="tag">GOOD</span>
+                </div>
+                <div class="item">
+                  <div class="itemLeft">
+                    <div class="avatar" style="background: linear-gradient(135deg, rgba(124,92,255,.92), rgba(251,113,133,.72))" aria-hidden="true"></div>
+                    <div>
+                      <b>把右侧活动流换成真实日志</b>
+                      <small>练习记录 / bug 记录 / 复盘记录</small>
+                    </div>
+                  </div>
+                  <span class="tag warn">PLAN</span>
+                </div>
+                <div class="item">
+                  <div class="itemLeft">
+                    <div class="avatar" style="background: linear-gradient(135deg, rgba(245,158,11,.95), rgba(34,211,238,.75))" aria-hidden="true"></div>
+                    <div>
+                      <b>把“图表占位”换成 SVG 图表</b>
+                      <small>依旧纯前端，不用库也能很酷</small>
+                    </div>
+                  </div>
+                  <span class="tag bad">HARD</span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card span-12" aria-label="底部信息">
+            <div class="cardHeader">
+              <div>
+                <p class="cardTitle">NOTES</p>
+                <p class="cardValue" style="font-size:18px">你可以从这里继续练 CSS</p>
+              </div>
+              <div class="pill" style="padding:8px 10px; gap:8px">
+                <span style="font-size:12px; color:var(--muted)">提示</span>
+                <strong style="font-size:12px">改一处，看全局</strong>
+              </div>
+            </div>
+            <div class="cardBody">
+              <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px;">
+                <div class="kpi" style="flex-direction:column; align-items:flex-start">
+                  <div style="font-weight:900">练选择器</div>
+                  <small>给 `.card`、`.badge`、`.nav a.active` 加不同状态样式</small>
+                </div>
+                <div class="kpi" style="flex-direction:column; align-items:flex-start">
+                  <div style="font-weight:900">练布局</div>
+                  <small>改 `grid-template-columns`、改断点，观察布局变化</small>
+                </div>
+                <div class="kpi" style="flex-direction:column; align-items:flex-start">
+                  <div style="font-weight:900">练动效</div>
+                  <small>调整 `shine` 动画、加 hover 过渡，但记得尊重 reduce-motion</small>
+                </div>
+              </div>
+
+              <div class="footer" style="margin-top:14px">
+                <span>Made for: 你的前端练习仓库</span>
+                <span>Tip: 右上角可切主题；左侧按钮有互动</span>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const app = document.getElementById('app');
+      const clock = document.getElementById('clock');
+      const today = document.getElementById('today');
+      const themeBtn = document.getElementById('themeBtn');
+      const themeText = document.getElementById('themeText');
+      const statusTag = document.getElementById('statusTag');
+      const boostBtn = document.getElementById('boostBtn');
+      const resetBtn = document.getElementById('resetBtn');
+
+      const bar1 = document.getElementById('bar1');
+      const bar2 = document.getElementById('bar2');
+      const bar3 = document.getElementById('bar3');
+      const p1 = document.getElementById('p1');
+      const p2 = document.getElementById('p2');
+      const p3 = document.getElementById('p3');
+      const focus = document.getElementById('focus');
+
+      const state = {
+        theme: localStorage.getItem('dashboardTheme') || 'dark',
+        p: [86, 74, 91],
+        focus: 78
+      };
+
+      function pad(n){return String(n).padStart(2,'0')}
+
+      function tick(){
+        const d = new Date();
+        clock.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      }
+
+      function setTheme(theme){
+        state.theme = theme;
+        app.setAttribute('data-theme', theme);
+        themeText.textContent = theme === 'dark' ? '暗色' : '亮色';
+        localStorage.setItem('dashboardTheme', theme);
+      }
+
+      function setProgress(){
+        const [a,b,c] = state.p;
+        bar1.style.width = `${a}%`;
+        bar2.style.width = `${b}%`;
+        bar3.style.width = `${c}%`;
+        p1.textContent = `${a}%`;
+        p2.textContent = `${b}%`;
+        p3.textContent = `${c}%`;
+        focus.textContent = `${state.focus}%`;
+      }
+
+      function fmtDate(){
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = pad(d.getMonth()+1);
+        const day = pad(d.getDate());
+        today.textContent = `${y}-${m}-${day}`;
+      }
+
+      function boost(){
+        state.p = state.p.map(v => Math.min(100, v + 7 + Math.floor(Math.random()*6)));
+        state.focus = Math.min(100, state.focus + 6);
+        statusTag.textContent = 'BOOSTED';
+        statusTag.className = 'tag';
+        setProgress();
+      }
+
+      function reset(){
+        state.p = [86, 74, 91];
+        state.focus = 78;
+        statusTag.textContent = 'ONLINE';
+        statusTag.className = 'tag';
+        setProgress();
+      }
+
+      // init
+      setTheme(state.theme);
+      fmtDate();
+      tick();
+      setTimeout(setProgress, 120);
+
+      setInterval(tick, 1000);
+
+      themeBtn.addEventListener('click', () => {
+        setTheme(state.theme === 'dark' ? 'light' : 'dark');
+      });
+      boostBtn.addEventListener('click', boost);
+      resetBtn.addEventListener('click', reset);
+
+      // small pulse
+      const pulse = document.getElementById('pulse');
+      let flip = false;
+      setInterval(() => {
+        flip = !flip;
+        pulse.textContent = flip ? '实时' : '同步';
+      }, 1200);
+    })();
+  </script>
+</body>
+</html>
