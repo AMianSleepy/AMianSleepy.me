@@ -367,11 +367,162 @@
         let totalDuration = scenes.reduce((acc, cur) => acc + cur.duration, 0);
         let movieStartTime = null; 
         let nextSceneTimeout = null; // 用于追踪场景切换定时器
+        let isPaused = false;
+        let elapsedBeforePause = 0;
+        let pauseStartTime = null;
+        let currentSceneStartTime = null;
+        let currentSceneDuration = 0;
+        let currentSceneRemaining = 0;
+        let progressRafId = null;
+        let hasStarted = false;
+
+        const scheduledTimeouts = [];
+        const activeAnimations = [];
+        const rafQueue = [];
+
+        function removeTimeoutEntry(entry) {
+            const index = scheduledTimeouts.indexOf(entry);
+            if (index >= 0) scheduledTimeouts.splice(index, 1);
+        }
+
+        function scheduleTimeout(callback, delay) {
+            const entry = {
+                callback,
+                delay,
+                remaining: delay,
+                start: Date.now(),
+                id: null
+            };
+
+            const run = () => {
+                removeTimeoutEntry(entry);
+                callback();
+            };
+
+            if (!isPaused) {
+                entry.id = setTimeout(run, delay);
+            }
+
+            scheduledTimeouts.push(entry);
+            return entry;
+        }
+
+        function pauseScheduledTimeouts() {
+            const now = Date.now();
+            scheduledTimeouts.forEach((entry) => {
+                if (!entry.id) return;
+                clearTimeout(entry.id);
+                entry.id = null;
+                entry.remaining = Math.max(0, entry.delay - (now - entry.start));
+            });
+        }
+
+        function resumeScheduledTimeouts() {
+            scheduledTimeouts.forEach((entry) => {
+                if (entry.id || entry.remaining <= 0) return;
+                entry.start = Date.now();
+                entry.delay = entry.remaining;
+                entry.id = setTimeout(() => {
+                    removeTimeoutEntry(entry);
+                    entry.callback();
+                }, entry.remaining);
+            });
+        }
+
+        function clearAllScheduledTimeouts() {
+            scheduledTimeouts.forEach((entry) => {
+                if (entry.id) clearTimeout(entry.id);
+            });
+            scheduledTimeouts.length = 0;
+        }
+
+        function registerAnimation(animation) {
+            activeAnimations.push(animation);
+            if (isPaused) animation.pause();
+            return animation;
+        }
+
+        function requestFrame(callback) {
+            if (isPaused) {
+                rafQueue.push(callback);
+                return 0;
+            }
+            return requestAnimationFrame(callback);
+        }
+
+        function drainRafQueue() {
+            const queued = rafQueue.splice(0, rafQueue.length);
+            queued.forEach((callback) => requestAnimationFrame(callback));
+        }
 
         // --- 播放控制 ---
 
+        function pauseMovie() {
+            if (!hasStarted || isPaused) return;
+            isPaused = true;
+            pauseStartTime = Date.now();
+
+            if (movieStartTime) {
+                elapsedBeforePause += pauseStartTime - movieStartTime;
+            }
+            movieStartTime = null;
+
+            if (nextSceneTimeout) {
+                clearTimeout(nextSceneTimeout);
+                nextSceneTimeout = null;
+            }
+
+            if (currentSceneStartTime) {
+                const elapsed = pauseStartTime - currentSceneStartTime;
+                currentSceneRemaining = Math.max(0, currentSceneDuration - elapsed);
+            }
+
+            if (progressRafId) {
+                cancelAnimationFrame(progressRafId);
+                progressRafId = null;
+            }
+
+            pauseScheduledTimeouts();
+            activeAnimations.forEach((animation) => animation.pause());
+        }
+
+        function resumeMovie() {
+            if (!hasStarted || !isPaused) return;
+            isPaused = false;
+
+            movieStartTime = Date.now() - elapsedBeforePause;
+
+            if (currentSceneRemaining > 0) {
+                currentSceneStartTime = Date.now() - (currentSceneDuration - currentSceneRemaining);
+                nextSceneTimeout = setTimeout(() => {
+                    playScene(currentSceneIndex + 1);
+                }, currentSceneRemaining);
+            } else if (currentSceneIndex < scenes.length - 1) {
+                playScene(currentSceneIndex + 1);
+            }
+
+            resumeScheduledTimeouts();
+            activeAnimations.forEach((animation) => animation.play());
+            drainRafQueue();
+            updateProgressBar();
+        }
+
         function startMovie() {
             if (replayButton) replayButton.classList.remove('replay-visible');
+            isPaused = false;
+            elapsedBeforePause = 0;
+            pauseStartTime = null;
+            currentSceneStartTime = null;
+            currentSceneDuration = 0;
+            currentSceneRemaining = 0;
+            activeAnimations.length = 0;
+            rafQueue.length = 0;
+            clearAllScheduledTimeouts();
+
+            if (progressRafId) {
+                cancelAnimationFrame(progressRafId);
+                progressRafId = null;
+            }
 
             // 1. 清理上一轮的定时器
             if (nextSceneTimeout) clearTimeout(nextSceneTimeout);
@@ -391,6 +542,7 @@
 
             // 3. 重置状态
             movieStartTime = Date.now();
+            hasStarted = true;
             updateProgressBar();
             playScene(0);
         }
@@ -415,6 +567,10 @@
             // 3. 执行场景特定的视觉设置 (传入当前的 stage 和 ctx 引用)
             scene.setup(stage, ctx);
 
+            currentSceneStartTime = Date.now();
+            currentSceneDuration = scene.duration;
+            currentSceneRemaining = scene.duration;
+
             // 4. 调度下一个场景
             nextSceneTimeout = setTimeout(() => {
                 playScene(index + 1);
@@ -424,8 +580,8 @@
         function updateSubtitles(cn, en) {
             subCn.classList.remove('subtitle-active');
             subEn.classList.remove('subtitle-active');
-            
-            setTimeout(() => {
+
+            scheduleTimeout(() => {
                 subCn.innerText = cn;
                 subEn.innerText = en;
                 subCn.classList.add('subtitle-active');
@@ -435,7 +591,7 @@
 
         // --- 进度条优化版本 ---
         function updateProgressBar() {
-            if (!movieStartTime) return;
+            if (!movieStartTime || isPaused) return;
             
             const now = Date.now();
             const elapsed = now - movieStartTime;
@@ -447,9 +603,10 @@
 
             // 如果电影还没结束，继续更新进度条
             if (pct < 100) {
-                requestAnimationFrame(updateProgressBar);
+                progressRafId = requestAnimationFrame(updateProgressBar);
             } else {
                 progressBar.style.width = '100%'; // 最终确保到100%
+                progressRafId = null;
             }
         }
 
@@ -468,7 +625,7 @@
             
             stage.appendChild(logo);
 
-            setTimeout(() => {
+            scheduleTimeout(() => {
                 logo.style.transform = 'scale(1.5) rotate(0deg)';
             }, 100);
         }
@@ -486,7 +643,7 @@
             stage.appendChild(codeWin);
 
             // 动画进入
-            setTimeout(() => codeWin.classList.add('fade-in'), 50);
+            scheduleTimeout(() => codeWin.classList.add('fade-in'), 50);
 
             // 打字机效果
             const textToType = `Console.<span class="method">WriteLine</span>(<span class="string">"Hello World"</span>);<br><span class="keyword">int</span> age = 25;<br><span class="keyword">if</span> (isReady) {<br>&nbsp;&nbsp;StartJourney();<br>}`;
@@ -495,9 +652,9 @@
             
             // 模拟解析HTML标签的打字机有点复杂，这里简化处理：
             // 直接一次性显示一部分，模拟思考停顿
-            setTimeout(() => { target.innerHTML = `<span class="class-name">Console</span>.<span class="method">WriteLine</span>(<span class="string">"Hello World"</span>);<span class="cursor"></span>`; }, 1000);
-            setTimeout(() => { target.innerHTML = `<span class="class-name">Console</span>.<span class="method">WriteLine</span>(<span class="string">"Hello World"</span>);<br><span class="keyword">int</span> age = 0;<span class="cursor"></span>`; }, 2500);
-            setTimeout(() => { target.innerHTML = `<span class="class-name">Console</span>.<span class="method">WriteLine</span>(<span class="string">"Hello World"</span>);<br><span class="keyword">int</span> age = 0;<br><span class="keyword">while</span>(true) { Learn(); }<span class="cursor"></span>`; }, 4000);
+            scheduleTimeout(() => { target.innerHTML = `<span class="class-name">Console</span>.<span class="method">WriteLine</span>(<span class="string">"Hello World"</span>);<span class="cursor"></span>`; }, 1000);
+            scheduleTimeout(() => { target.innerHTML = `<span class="class-name">Console</span>.<span class="method">WriteLine</span>(<span class="string">"Hello World"</span>);<br><span class="keyword">int</span> age = 0;<span class="cursor"></span>`; }, 2500);
+            scheduleTimeout(() => { target.innerHTML = `<span class="class-name">Console</span>.<span class="method">WriteLine</span>(<span class="string">"Hello World"</span>);<br><span class="keyword">int</span> age = 0;<br><span class="keyword">while</span>(true) { Learn(); }<span class="cursor"></span>`; }, 4000);
         }
 
         // 场景 3: OOP (Blueprints to Objects)
@@ -519,7 +676,7 @@
             `;
             stage.appendChild(blueprint);
 
-            setTimeout(() => blueprint.classList.add('fade-in'), 100);
+            scheduleTimeout(() => blueprint.classList.add('fade-in'), 100);
 
             // 右侧：实例化对象
             const positions = [
@@ -529,7 +686,7 @@
             ];
 
             positions.forEach((pos, idx) => {
-                setTimeout(() => {
+                scheduleTimeout(() => {
                     const obj = document.createElement('div');
                     obj.className = 'box';
                     obj.innerText = `new Hero()`;
@@ -575,7 +732,7 @@
                 ctx.setLineDash([5, 5]);
                 ctx.stroke();
 
-                if(progress < 1) requestAnimationFrame(animateLine);
+                if (progress < 1) requestFrame(animateLine);
             }
             animateLine();
         }
@@ -607,7 +764,7 @@
 
             // 生成粒子
             for (let i = 0; i < 20; i++) {
-                setTimeout(() => {
+                scheduleTimeout(() => {
                     const p = document.createElement('div');
                     p.className = 'particle';
                     const val = Math.floor(Math.random() * 10);
@@ -630,7 +787,7 @@
                     container.appendChild(p);
 
                     // 动画路径
-                    p.animate([
+                    registerAnimation(p.animate([
                         { transform: 'translateX(0)', opacity: 0 },
                         { transform: 'translateX(100px)', opacity: 1 },
                         { transform: 'translateX(400px)', opacity: 1 }, // Filter zone
@@ -639,7 +796,7 @@
                         duration: 2000,
                         easing: 'linear',
                         fill: 'forwards'
-                    });
+                    }));
 
                 }, i * 200);
             }
@@ -664,7 +821,7 @@
             const radius = 200;
             
             for(let i=0; i<count; i++) {
-                setTimeout(() => {
+                scheduleTimeout(() => {
                     const angle = (i / count) * Math.PI * 2;
                     const x = Math.cos(angle) * radius;
                     const y = Math.sin(angle) * radius;
@@ -706,13 +863,13 @@
                     pulse.style.top = '50%';
                     stage.appendChild(pulse);
 
-                    pulse.animate([
+                    registerAnimation(pulse.animate([
                         { transform: `translate(-50%, -50%)` },
                         { transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` }
                     ], {
                         duration: 1000,
                         iterations: Infinity
-                    });
+                    }));
 
                 }, i * 500);
             }
@@ -743,15 +900,31 @@
             container.appendChild(sub);
             stage.appendChild(container);
 
-            setTimeout(() => {
+            scheduleTimeout(() => {
                 title.style.opacity = '1';
                 title.style.transform = 'translateY(0)';
                 sub.style.opacity = '1';
             }, 100);
         }
 
+        function handleMessage(event) {
+            const action = event.data;
+            if (action === 'play') {
+                if (!hasStarted) startMovie();
+                else resumeMovie();
+            } else if (action === 'pause') {
+                pauseMovie();
+            } else if (action === 'resume') {
+                resumeMovie();
+            }
+        }
+
+        window.addEventListener('message', handleMessage);
+
         // --- 启动 ---
-        window.onload = startMovie;
+        window.onload = () => {
+            if (window.self === window.top) startMovie();
+        };
 
     </script>
 </body>

@@ -274,4 +274,9 @@
     position: static;
     margin-bottom: 40px;
   }
+  .site-header .header-actions {
+    position: static;
+    transform: none;
+    margin-left: auto;
+  }
 }

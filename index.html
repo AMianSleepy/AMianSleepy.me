@@ -176,22 +176,32 @@
       document.addEventListener('DOMContentLoaded', () => {
         const frame = document.getElementById('journey-frame');
         const visualContainer = document.getElementById('journey-visual');
+        let hasPlayed = false;
         
+        const sendMessage = (action) => {
+          if (frame && frame.contentWindow) {
+            frame.contentWindow.postMessage(action, '*');
+          }
+        };
+
         // 使用 IntersectionObserver 监听元素是否进入视图
         const observer = new IntersectionObserver((entries) => {
           entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              // 进入视图，发送播放指令
-              // 延时一点点，确保 iframe 加载完成且用户定睛
+            if (!visualContainer) return;
+            const isVisible = entry.intersectionRatio >= 0.5;
+            if (isVisible) {
               setTimeout(() => {
-                if(frame && frame.contentWindow) {
-                  frame.contentWindow.postMessage('play', '*');
-                  visualContainer.classList.add('playing');
+                if (!hasPlayed) {
+                  sendMessage('play');
+                  hasPlayed = true;
+                } else {
+                  sendMessage('resume');
                 }
-              }, 500);
-              
-              // 播放后断开观察，避免重复触发（除非希望每次滚回来都重播，暂不推荐）
-              observer.disconnect();
+                visualContainer.classList.add('playing');
+              }, 200);
+            } else if (hasPlayed) {
+              sendMessage('pause');
+              visualContainer.classList.remove('playing');
             }
           });
         }, {
